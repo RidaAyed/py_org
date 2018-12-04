@@ -149,13 +149,6 @@ def parse_time(time_string):
     return "{0}:{1}".format(time_string[:2], time_string[2:])
 
 
-def parse_json(filename):
-    f = open(filename, "r")
-    contents = f.read()
-    q.add_parse(contents)
-    f.close()
-
-
 def day_of_week(dow):
     return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][dow - 1]
 
@@ -176,12 +169,4 @@ def parse_ymd(date_string):
     return list(map(lambda x: int(x), parts))
 
 
-def write_output(path, contents):
-    f = open(path, "w")
-    f.write(contents)
-    f.close()
 
-q = Org()
-parse_json("input1.json")
-parse_json("input2.json")
-write_output("output.org", str(q))
