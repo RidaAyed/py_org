@@ -9,7 +9,7 @@ def parse_json(path):
 
 
 def write_output(path, contents):
-    f = open(path, "w")
+    f = open(path, "a")
     f.write(contents)
     f.close()
 

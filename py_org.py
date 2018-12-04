@@ -131,6 +131,7 @@ class Org:
         for i in years_sorted:
             result.append("* {0}".format(i))
             result.append(self.years[i])
+        result.append("")
         return '\n'.join(str(x) for x in result)
 
 
