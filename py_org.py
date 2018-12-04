@@ -49,7 +49,7 @@ class OrgDay:
         self.events = []
 
     def add(self, json_obj):
-        self.dow = json_obj["date_parsed"][2]
+        self.dow = json_obj["date_parsed"][2] - 1
         ev = OrgEvent()
         ev.dow = self.dow
         ev.when = json_obj["date0"]
@@ -150,7 +150,7 @@ def parse_time(time_string):
 
 
 def day_of_week(dow):
-    return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][dow - 1]
+    return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][dow]
 
 
 def minutes_total(time_string):
