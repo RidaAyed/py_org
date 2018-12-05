@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 from collections import defaultdict
 
 
@@ -40,6 +41,21 @@ class OrgEvent:
             result.append("***** TODO {0}".format(todo))
         return '\n'.join(str(x) for x in result)
 
+    def parse(self, event_lines):
+        for line in event_lines:
+            if line.startswith("     :"):
+                continue
+            elif line.startswith("     Attendees: "):
+                self.attendees = line.split(": ")[1].split(", ")
+            elif line.startswith("     CLOCK: "):
+                groups = re.findall("(\d{2}:\d{2})\]", line)
+                self.time_start = groups[0]
+                self.time_end = groups[1]
+            elif line.startswith("***** TODO "):
+                self.todo_list.append(line.split("***** TODO ")[1])
+            elif line.startswith("     "):
+                self.comments.append(line.split("     ")[1])
+
 
 class OrgDay:
     dow = None
@@ -69,6 +85,26 @@ class OrgDay:
             result.append(ev)
         return '\n'.join(str(x) for x in result)
 
+    def parse(self, day_lines):
+        current_event = None
+        event_lines = []
+        for line in day_lines:
+            if line.startswith("**** "):
+                if current_event is not None:
+                    current_event.parse(event_lines)
+                    self.events.append(current_event)
+                    event_lines = []
+                current_event = OrgEvent()
+                current_event.dow = self.dow
+                groups = re.match("\*{4} <(\d{4}-\d{2}-\d{2}) \w{2}\. \d+:\d+> (.*)", line).groups()
+                current_event.when = groups[0]
+                current_event.title = groups[1]
+            if not line.startswith("**** "):
+                event_lines.append(line)
+        if current_event is not None:
+            current_event.parse(event_lines)
+            self.events.append(current_event)
+
 
 class OrgWeek:
     days = None
@@ -87,6 +123,25 @@ class OrgWeek:
         for i in days_sorted:
             result.append(self.days[i])
         return '\n'.join(str(x) for x in result)
+
+    def parse(self, week_lines):
+        current_day = None
+        day_lines = []
+        for line in week_lines:
+            if line.startswith("*** "):
+                if current_day is not None:
+                    current_day.parse(day_lines)
+                    self.days[current_day.dow] = current_day
+                    day_lines = []
+                current_day = OrgDay()
+                parts = line.split(" ")
+                ymd = parse_ymd(parts[1])
+                current_day.dow = datetime.date(ymd[0], ymd[1], ymd[2]).isocalendar()[2] - 1
+            if not line.startswith("*** "):
+                day_lines.append(line)
+        if current_day is not None:
+            current_day.parse(day_lines)
+            self.days[current_day.dow] = current_day
 
 
 class OrgYear:
@@ -110,6 +165,24 @@ class OrgYear:
             result.append(self.weeks[i])
         return '\n'.join(str(x) for x in result)
 
+    def parse(self, year_lines):
+        current_week = None
+        week_number = 0
+        week_lines = []
+        for line in year_lines:
+            if line.startswith("** "):
+                if current_week is not None:
+                    current_week.parse(week_lines)
+                    self.weeks[week_number] = current_week
+                    week_lines = []
+                current_week = OrgWeek()
+                week_number = int(line.split("-W")[1])
+            if not line.startswith("** "):
+                week_lines.append(line)
+        if current_week is not None:
+            current_week.parse(week_lines)
+            self.weeks[week_number] = current_week
+
 
 class Org:
     years = None
@@ -119,9 +192,9 @@ class Org:
 
     def add_parse(self, json_str):
         obj = json.loads(json_str)
-        ydm = parse_ymd(obj["date0"])
-        obj["date_parsed"] = datetime.date(ydm[0], ydm[1], ydm[2]).isocalendar()
-        year = ydm[0]  # year
+        ymd = parse_ymd(obj["date0"])
+        obj["date_parsed"] = datetime.date(ymd[0], ymd[1], ymd[2]).isocalendar()
+        year = ymd[0]  # year
 
         self.years[year].add(obj)
 
@@ -133,6 +206,24 @@ class Org:
             result.append(self.years[i])
         result.append("")
         return '\n'.join(str(x) for x in result)
+
+    def parse(self, org_str):
+        lines = org_str.split("\n")
+        current_year = None
+        year_lines = []
+        for line in lines:
+            if line.startswith("* "):
+                if current_year is not None:
+                    current_year.parse(year_lines)
+                    self.years[current_year.year] = current_year
+                    year_lines = []
+                current_year = OrgYear()
+                current_year.year = int(line.split(" ")[1])
+            if not line.startswith("* "):
+                year_lines.append(line)
+        if current_year is not None:
+            current_year.parse(year_lines)
+            self.years[current_year.year] = current_year
 
 
 def fetch_incrementing(json_obj, key):
